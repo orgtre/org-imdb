@@ -1,0 +1,4 @@
+* org-imdb
+
+Some elisp functions to interface between Emacs Org mode and a SQLite database holding the public [[https://www.imdb.com/interfaces/][IMDb datasets]], as created by [[https://github.com/jojje/imdb-sqlite][imdb-sqlite]]. The similar packages [[https://github.com/isamert/orgmdb.el][orgmdb.el]] or [[https://github.com/larsmagne/imdb.el][imdb.el]] might be more useful to you. The package depends on [[https://github.com/pekingduck/emacs-sqlite3-api][emacs-sqlite3-api]].
+
