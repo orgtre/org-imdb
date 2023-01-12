@@ -22,6 +22,7 @@
 ;;; Code:
 
 (require 'org)
+(require 'cl-lib)
 (require 'sqlite3)
 (require 'levenshtein)
 
@@ -33,6 +34,11 @@
   "Path to an SQLite database holding the IMDb data.
 It should be created by URL `https://github.com/jojje/imdb-sqlite'
 or at least follow a similar schema."
+  :type 'string)
+
+(defcustom org-imdb-id "imdbid"
+  "Property used to identify Org entries part of your database.
+Used to match entries by `org-imdb-update-all'."
   :type 'string)
 
 (defcustom org-imdb-properties
@@ -135,10 +141,12 @@ Note that this includes renaming made in `org-imdb-title-query'.")
 			 (assoc x alldata))
 		       org-imdb-properties)))
     (mapc (lambda (x)
-	    (org-entry-put
-	     nil
-	     (funcall org-imdb-property-case-function (car x))
-	     (cdr x)))
+            (when (cdr x)
+              ;; omit empty values
+	      (org-entry-put
+	       nil
+	       (funcall org-imdb-property-case-function (car x))
+	       (cdr x))))
 	  data)
     (when (and org-imdb-imdbid-as-link
 	       (member "imdbid" org-imdb-properties))
@@ -152,7 +160,9 @@ Note that this includes renaming made in `org-imdb-title-query'.")
   (let ((imdbid (org-entry-get nil "imdbid")))
     (if (string-prefix-p "[[" imdbid)
 	(org-link-display-format imdbid)
-      imdbid)))
+      (if (string-empty-p imdbid)
+          nil
+        imdbid))))
 
 
 (defun org-imdb-org-entry-linkify-imdbid ()
@@ -175,9 +185,12 @@ Note that this includes renaming made in `org-imdb-title-query'.")
 		   (string-trim (match-string 1 heading))))
 	 (year (match-string 2 heading))
 	 (selected-type
-	  (completing-read "Type: " org-imdb-types))
+          (or (when-let ((type (org-entry-get nil "type")))
+                (when (member type org-imdb-types) type))
+	      (completing-read
+               (format "Type for entry \"%s\": " heading)
+               org-imdb-types)))
 	 (query (org-imdb-get-id-query qtitle year selected-type))
-	 ;; premiered = '1990' and
 	 (callback (lambda (_ncols row _colnames)
 		     (let* ((id (nth 0 row))
 			    (premiered (nth 1 row))
@@ -289,6 +302,27 @@ is larger than 3, additionally append ` [ptitle]'."
      (concat (format "%s (%s)" otitle premiered)
 	     (when (> (levenshtein-distance otitle ptitle) 3)
 	       (format " [%s]" ptitle))))))
+
+
+;;;###autoload
+(defun org-imdb-update-all (scope)
+  "Update all Org entries with property `org-imdb-id' in SCOPE.
+SCOPE is as in `org-map-entires' which is used to run
+`org-imdb-update-entry' on the entries."
+  (interactive
+   (list (intern
+          (completing-read
+           "Scope: "
+           '("nil" "tree" "region" "region-start-level" "file"
+             "file-with-archives" "agenda" "agenda-with-archives")))))
+  (let ((count 0))
+    (org-map-entries
+     (lambda ()
+       (setq count (1+ count))
+       (org-imdb-update-entry))
+     (concat org-imdb-id "<>\"\"")
+     scope)
+    (message "Updated %s entries." count)))
 
 
 ;;;###autoload
