@@ -43,20 +43,20 @@ Used to match entries by `org-imdb-update-all'."
 
 (defcustom org-imdb-properties
   '("imdbid" "director" "rating" "votes" "genres"
-    "runtime" "premiered" "type")
+    "runtime" "year" "type")
   "List of database columns to write as properties to Org entries.
 Its elements have to be in `org-imdb-columns'."
   :type 'list)
 
 (defcustom org-imdb-user-properties
-  '("myprio" "mytags" "watched" "myrating")
+  '("prio" "tag" "watched" "score")
   "List of properties whose values are manually set by the user."
   ;; TODO Should these properties be added with nil values?
   :type 'list)
 
 (defcustom org-imdb-properties-order
-  '("imdbid" "director" "myprio" "mytags" "watched" "myrating"
-    "runtime" "type" "rating" "votes" "premiered" "genres")
+  '("imdbid" "director" "prio" "tag" "watched" "score"
+    "runtime" "type" "rating" "votes" "year" "genres")
   "List containing entry properties in the desired order.
 Should contain a subset of `org-imdb-properties' and
 `org-imdb-user-properties'. Properties not on this list
@@ -91,7 +91,7 @@ as argument. When nil, leave heading as it is."
   "List of all the available IMDb entry types.")
 
 (defconst org-imdb-columns
-  '("imdbid" "type" "ptitle" "otitle" "adult" "premiered"
+  '("imdbid" "type" "ptitle" "otitle" "adult" "year"
     "ended" "runtime" "genres" "rating" "votes" "show"
     "season" "episode" "writer" "producer" "editor" "director"
     "composer" "cinematographer" "actor")
@@ -104,7 +104,7 @@ Note that this includes renaming made in `org-imdb-title-query'.")
 	  t.primary_title              AS ptitle,
 	  t.original_title             AS otitle,
 	  t.is_adult                   AS adult,
-	  t.premiered,
+	  t.premiered                  AS year,
 	  t.ended,
 	  t.runtime_minutes            AS runtime,
 	  REPLACE(t.genres, ',', ', ') AS genres,
@@ -313,9 +313,9 @@ If the `levenshtein-distance' between otitle and ptitle
 is larger than 3, additionally append ` [ptitle]'."
   (let ((otitle (cdr (assoc "otitle" d)))
 	(ptitle (cdr (assoc "ptitle" d)))
-	(premiered (cdr (assoc "premiered" d))))
+	(year (cdr (assoc "year" d))))
     (org-edit-headline
-     (concat (format "%s (%s)" otitle premiered)
+     (concat (format "%s (%s)" otitle year)
 	     (when (> (levenshtein-distance otitle ptitle) 3)
 	       (format " [%s]" ptitle))))))
 
