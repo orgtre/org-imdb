@@ -49,10 +49,24 @@ Its elements have to be in `org-imdb-columns'."
   :type 'list)
 
 (defcustom org-imdb-user-properties
-  '("prio" "tag" "watched" "myrating")
-  "List of properties whose values are manually set by the user.
-These properties will be added with nil values."
+  '("myprio" "mytags" "watched" "myrating")
+  "List of properties whose values are manually set by the user."
+  ;; TODO Should these properties be added with nil values?
   :type 'list)
+
+(defcustom org-imdb-properties-order
+  '("imdbid" "director" "myprio" "mytags" "watched" "myrating"
+    "runtime" "type" "rating" "votes" "premiered" "genres")
+  "List containing entry properties in the desired order.
+Should contain a subset of `org-imdb-properties' and
+`org-imdb-user-properties'. Properties not on this list
+will be added below."
+  :type 'list)
+
+(defcustom org-imdb-sort-entry-on-update t
+  "If non-nil sort entry property drawer when updating.
+The sort order is determined by `org-imdb-properties-order'."
+  :type 'bool)
 
 (defcustom org-imdb-property-case-function #'identity
   "Convert property names using this function before inserting.
@@ -152,7 +166,9 @@ Note that this includes renaming made in `org-imdb-title-query'.")
 	       (member "imdbid" org-imdb-properties))
       (org-imdb-org-entry-linkify-imdbid))
     (when org-imdb-heading-constructor
-      (funcall org-imdb-heading-constructor alldata))))
+      (funcall org-imdb-heading-constructor alldata))
+    (when org-imdb-sort-entry-on-update
+      (org-imdb-entry-sort-properties))))
 
 
 (defun org-imdb-org-entry-get-imdbid ()
@@ -332,6 +348,99 @@ SCOPE is as in `org-map-entires' which is used to run
   (let* ((imdbid (org-imdb-org-entry-get-imdbid))
 	 (url (concat "https://www.imdb.com/title/" imdbid)))
     (browse-url url)))
+
+
+(defun org-imdb-entry-sort-properties ()
+  "Sorts entry properties according to `org-imdb-properties-order`.
+Properties not in that list are but at the end, in their orginal order."
+  (interactive)
+  (let ((order org-imdb-properties-order)
+        (foldp (org-fold-folded-p (car (org-get-property-block)) 'drawer))
+        (inprops (imdb-org-entry-properties-preserve-case))
+        outprops)
+    (setq inprops (nreverse inprops))
+    (setq outprops
+          (sort inprops
+                (lambda (x y)
+                  (let* ((xp (string-match-p "\\+\\'" (car x)))
+                         (yp (string-match-p "\\+\\'" (car y)))
+                         (xbase (if xp (substring (car x) 0 -1) (car x)))
+                         (ybase (if yp (substring (car y) 0 -1) (car y)))
+                         (posx (cl-position xbase order :test 'string=))
+                         (posy (cl-position ybase order :test 'string=)))
+                    (cond ((and posx posy)
+                           (< posx posy))
+                          ((and posx (not posy))
+                           t)
+                          ((and (not posx) posy)
+                           nil)
+                          (t
+                           nil))))))
+    (mapc (lambda (x) (org-entry-delete nil (car x))) outprops)
+    (mapc (lambda (x) (org-entry-put nil (car x) (cdr x))) outprops)
+    (when (not foldp)
+      (imdb-org-entry-reveal-drawer))))
+
+
+(defun imdb-org-entry-properties-preserve-case ()
+  "Get standard properties of current entry.
+Extracted from `org-entry-properties' and modified to retain case,
+retain + (if suitable but still concat values), and account for empty
+property values."
+  (org-with-point-at nil
+    (org-back-to-heading-or-point-min t)
+    (let ((range (org-get-property-block (point)))
+          props)
+      (when range
+        (let ((end (cdr range)) seen-base)
+          (goto-char (car range))
+          (while (re-search-forward org-property-re end t)
+	    (let* ((key (match-string-no-properties 2))
+	           (extendp (string-match-p "\\+\\'" key))
+	           (key-base (if extendp (substring key 0 -1) key))
+	           (value (match-string-no-properties 3)))
+	      (cond
+	       ((member-ignore-case key-base org-special-properties))
+	       (extendp
+                (let ((old-ext (assoc-string key props t))
+                      (old-base (assoc-string key-base props t)))
+                  (cond
+                   ((and (not old-ext)
+                         (not old-base))
+                    (setq props (cons (cons key value) props)))
+                   (old-ext
+                    (setcdr old-ext
+                            (concat
+                             (cdr old-ext)
+                             (unless (string-empty-p (cdr old-ext)) " ")
+                             value)))
+                   (old-base
+                    (setcdr old-base
+                            (concat
+                             (cdr old-base)
+                             (unless (string-empty-p (cdr old-base)) " ")
+                             value))))))
+	       ((member-ignore-case key seen-base))
+	       (t (push key seen-base)
+	          (let ((p (assoc-string (concat key "+") props t)))
+		    (if (not p)                        
+		        (push (cons key value) props)
+                      (setcar p key)
+                      (setcdr p
+                              (concat
+                               value
+                               (unless (string-empty-p value) " ")
+                               (cdr p)))))))))))
+      props)))
+
+
+(defun imdb-org-entry-reveal-drawer (&optional arg)
+  "Reveal property drawer of entry at point.
+With ARG, hide it instead."
+  (save-excursion
+    (goto-char (car (org-get-property-block)))
+    (left-char)
+    (org-fold-hide-drawer-toggle (if arg t 'off) t)))
 
 
 (provide 'org-imdb)
