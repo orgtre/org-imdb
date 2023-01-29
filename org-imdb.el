@@ -493,6 +493,27 @@ sets ARG to `t', while two set it to `off'."
   (org-set-property prop nil))
 
 
+(defun org-imdb-edit/add-prop (prop)
+  "Edit or add property PROP of current entry.
+Add the property key if it doesn't exist and position point
+at the property value, marking the old value if there is one."
+  (interactive (list (completing-read "Property: "
+                                      org-imdb-user-properties)))
+  (org-imdb-entry-toggle-drawer 'off)
+  (org-back-to-heading)
+  (let ((old-prop (org-entry-get nil prop)))
+    (if old-prop
+        (progn
+          (re-search-forward
+           (format "^[ \t]*:%s:[ \t]*\\(.*\\)" prop))
+          (set-mark-command nil)
+          (goto-char (match-beginning 1)))
+      (org-entry-put nil prop "")
+      (re-search-forward
+       (format "^[ \t]*:%s:" prop))
+      (insert " "))))
+
+
 (provide 'org-imdb)
 
 ;;; org-imdb.el ends here
