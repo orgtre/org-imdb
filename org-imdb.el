@@ -150,6 +150,13 @@ Note that this includes renaming made in `org-imdb-title-query'.")
 (defconst org-imdb-get-id-query-title
   "(original_title LIKE '%%%1$s%%' OR primary_title LIKE '%%%1$s%%')")
 
+(defvar org-imdb-minor-mode-map
+  (make-sparse-keymap))
+
+;;;###autoload
+(define-minor-mode org-imdb-minor-mode
+  "Minor mode for org-imdb."
+  :keymap org-imdb-minor-mode-map)
 
 ;;;###autoload
 (defun org-imdb-update-entry ()
