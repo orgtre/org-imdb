@@ -266,6 +266,7 @@ QTITLE, YEAR, and TYPE will be inserted at suitable points."
     (setq year nil))
   (when (equal type "")
     (setq type nil))
+  (setq qtitle (string-replace "'" "''" qtitle))
   (concat org-imdb-get-id-query-base
 	  " WHERE "
 	  (cond
