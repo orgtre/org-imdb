@@ -41,6 +41,13 @@ or at least follow a similar schema."
 Used to match entries by `org-imdb-update-all'."
   :type 'string)
 
+(defcustom org-imdb-id-na "n.a."
+  "Value used to indicate `org-imdb-id' is not available.
+When `org-imdb-id' is set to this value no attempt is made
+to update the entry using the IMDb datasets. Should be
+nonempty and contain more than whitespace."
+  :type 'string)
+
 (defcustom org-imdb-properties
   '("imdbid" "director" "rating" "votes" "genres"
     "runtime" "year" "type")
@@ -49,18 +56,18 @@ Its elements have to be in `org-imdb-columns'."
   :type 'list)
 
 (defcustom org-imdb-user-properties
-  '("prio" "tag" "watched" "score")
+  '("prio" "tag" "watched" "score" "link")
   "List of properties whose values are manually set by the user."
   ;; TODO Should these properties be added with nil values?
   :type 'list)
 
 (defcustom org-imdb-properties-order
   '("imdbid" "director" "prio" "tag" "watched" "score"
-    "runtime" "type" "rating" "votes" "year" "genres")
+    "runtime" "type" "rating" "votes" "year" "genres" "link")
   "List containing entry properties in the desired order.
 Should contain a subset of `org-imdb-properties' and
 `org-imdb-user-properties'. Properties not on this list
-will be added below."
+will be sorted below."
   :type 'list)
 
 (defcustom org-imdb-sort-entry-on-update t
@@ -150,35 +157,42 @@ Note that this includes renaming made in `org-imdb-title-query'.")
   (interactive)
   (let* ((imdbid (or (org-imdb-org-entry-get-imdbid)
 		     (org-imdb-get-id)))
-	 (alldata (org-imdb-get-title-data imdbid))
-	 (data (mapcar (lambda (x)
-			 (assoc x alldata))
-		       org-imdb-properties)))
-    (mapc (lambda (x)
-            (when (cdr x)
-              ;; omit empty values
-	      (org-entry-put
-	       nil
-	       (funcall org-imdb-property-case-function (car x))
-	       (cdr x))))
-	  data)
-    (when (and org-imdb-imdbid-as-link
-	       (member "imdbid" org-imdb-properties))
-      (org-imdb-org-entry-linkify-imdbid))
-    (when org-imdb-heading-constructor
-      (funcall org-imdb-heading-constructor alldata))
+         alldata data)
+    (unless (equal imdbid org-imdb-id-na)
+      (setq alldata (org-imdb-get-title-data imdbid))
+      (setq data (mapcar (lambda (x)
+			   (assoc x alldata))
+		         org-imdb-properties))
+      (mapc (lambda (x)
+              (when (cdr x)
+                ;; omit empty values
+	        (org-entry-put
+	         nil
+	         (funcall org-imdb-property-case-function (car x))
+	         (cdr x))))
+	    data)
+      (when (and org-imdb-imdbid-as-link
+	         (member "imdbid" org-imdb-properties))
+        (org-imdb-org-entry-linkify-imdbid))
+      (when org-imdb-heading-constructor
+        (funcall org-imdb-heading-constructor alldata)))
     (when org-imdb-sort-entry-on-update
       (org-imdb-entry-sort-properties))))
 
 
 (defun org-imdb-org-entry-get-imdbid ()
-  "Get imdbid of entry even when it's stored as link."
+  "Get imdbid of entry even when it's stored as link.
+Returns nil when no valid imdbid is found."
   (let ((imdbid (org-entry-get nil "imdbid")))
-    (if (string-prefix-p "[[" imdbid)
-	(org-link-display-format imdbid)
-      (if (string-empty-p imdbid)
-          nil
-        imdbid))))
+    (when imdbid
+      (if (string-prefix-p "[[" imdbid)
+	  (org-link-display-format imdbid)
+        (if (and (not (string-empty-p imdbid))
+                 (or (and org-imdb-id-na
+                          (equal org-imdb-id-na imdbid))
+                     (string-match-p "^tt[0-9]+$" imdbid)))
+            imdbid
+          nil)))))
 
 
 (defun org-imdb-org-entry-linkify-imdbid ()
@@ -231,6 +245,8 @@ Note that this includes renaming made in `org-imdb-title-query'.")
 		     (car choice-list)
 		   (completing-read "Title: " choice-list)))
     (setq selected-id (gethash choice hash-table))
+    (unless selected-id
+      (user-error "No imdbid found. Try a broader query."))
     selected-id))
 
 
@@ -441,6 +457,12 @@ With ARG, hide it instead."
     (goto-char (car (org-get-property-block)))
     (left-char)
     (org-fold-hide-drawer-toggle (if arg t 'off) t)))
+
+
+(defun org-imdb-set-user-property (&optional prop)
+  (interactive (list (completing-read "Property: "
+                                      org-imdb-user-properties)))
+  (org-set-property prop nil))
 
 
 (provide 'org-imdb)
