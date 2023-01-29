@@ -379,7 +379,7 @@ Properties not in that list are but at the end, in their orginal order."
   (interactive)
   (let ((order org-imdb-properties-order)
         (foldp (org-fold-folded-p (car (org-get-property-block)) 'drawer))
-        (inprops (imdb-org-entry-properties-preserve-case))
+        (inprops (org-imdb-entry-properties-preserve-case))
         outprops)
     (setq inprops (nreverse inprops))
     (setq outprops
@@ -402,10 +402,10 @@ Properties not in that list are but at the end, in their orginal order."
     (mapc (lambda (x) (org-entry-delete nil (car x))) outprops)
     (mapc (lambda (x) (org-entry-put nil (car x) (cdr x))) outprops)
     (when (not foldp)
-      (imdb-org-entry-reveal-drawer))))
+      (org-imdb-entry-toggle-drawer 'off))))
 
 
-(defun imdb-org-entry-properties-preserve-case ()
+(defun org-imdb-entry-properties-preserve-case ()
   "Get standard properties of current entry.
 Extracted from `org-entry-properties' and modified to retain case,
 retain + (if suitable but still concat values), and account for empty
@@ -457,13 +457,34 @@ property values."
       props)))
 
 
-(defun imdb-org-entry-reveal-drawer (&optional arg)
-  "Reveal property drawer of entry at point.
-With ARG, hide it instead."
+(defun org-imdb-entry-toggle-drawer (&optional arg)
+  "Toggle visibility of the property drawer of entry at point.
+The entry itself is always unfolded, but the drawer is only
+unfolded if that is required for toggling its visbility.
+When ARG is `off' always reveal the drawer.
+When ARG is any other non-nil value, hide it.
+When called interactively one `\\[universal-argument]' prefix
+sets ARG to `t', while two set it to `off'."
+  (interactive "P")
+  (when (called-interactively-p)
+    (cond
+     ((equal arg '(4)) (setq arg t))
+     ((equal arg '(16)) (setq arg 'off))))
   (save-excursion
-    (goto-char (car (org-get-property-block)))
-    (left-char)
-    (org-fold-hide-drawer-toggle (if arg t 'off) t)))
+    (org-back-to-heading)
+    (let ((h-folded-p (org-fold-folded-p (line-end-position)))
+          (d-pos (car (org-get-property-block)))
+          d-folded-p)
+      (when h-folded-p
+        (org-fold-heading nil t))
+      (when d-pos
+        (goto-char d-pos)
+        (left-char)
+        (cond
+         (h-folded-p
+          (org-fold-hide-drawer-toggle (or arg 'off)))
+         ((not h-folded-p)
+          (org-fold-hide-drawer-toggle (or arg nil))))))))
 
 
 (defun org-imdb-set-user-property (&optional prop)
