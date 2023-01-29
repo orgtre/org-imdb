@@ -75,6 +75,10 @@ will be sorted below."
 The sort order is determined by `org-imdb-properties-order'."
   :type 'bool)
 
+(defcustom org-imdb-show-entry-on-update t
+  "If non-nil show entry and its drawer after updating."
+  :type 'bool)
+
 (defcustom org-imdb-property-case-function #'identity
   "Convert property names using this function before inserting.
 Reasonable values are #\\='upcase, #\\='capitalize, #\\='downcase,
@@ -159,7 +163,7 @@ Note that this includes renaming made in `org-imdb-title-query'.")
   :keymap org-imdb-minor-mode-map)
 
 ;;;###autoload
-(defun org-imdb-update-entry ()
+(defun org-imdb-update-entry (&optional do-not-show-entry)
   "Update entry at point."
   (interactive)
   (let* ((imdbid (or (org-imdb-org-entry-get-imdbid)
@@ -184,7 +188,11 @@ Note that this includes renaming made in `org-imdb-title-query'.")
       (when org-imdb-heading-constructor
         (funcall org-imdb-heading-constructor alldata)))
     (when org-imdb-sort-entry-on-update
-      (org-imdb-entry-sort-properties))))
+      (org-imdb-entry-sort-properties))
+    (when (or (not do-not-show-entry) org-imdb-show-entry-on-update)
+      (org-imdb-entry-toggle-drawer 'off)
+      (when (org-fold-folded-p (save-excursion (org-end-of-subtree)))
+        (org-fold-heading nil t)))))
 
 
 (defun org-imdb-org-entry-get-imdbid ()
@@ -359,7 +367,7 @@ SCOPE is as in `org-map-entires' which is used to run
     (org-map-entries
      (lambda ()
        (setq count (1+ count))
-       (org-imdb-update-entry))
+       (org-imdb-update-entry t))
      (concat org-imdb-id "<>\"\"")
      scope)
     (message "Updated %s entries." count)))
