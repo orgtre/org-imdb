@@ -157,6 +157,10 @@ Note that this includes renaming made in `org-imdb-title-query'.")
 (defvar org-imdb-minor-mode-map
   (make-sparse-keymap))
 
+(defvar org-imdb-speed-map
+  (make-sparse-keymap)
+  "Keymap complementing Org Speed Keys.")
+
 
 ;;;###autoload
 (define-minor-mode org-imdb-minor-mode
@@ -177,6 +181,8 @@ Note that this includes renaming made in `org-imdb-title-query'.")
        ("^:.*?:" 0 'org-special-keyword t)
        ("^:\\(?:PROPERTIES\\|END\\):" 0 'org-drawer t))
      t))
+  (font-lock-add-keywords
+   nil '(("^\\*+ " 0 `(face nil keymap ,org-imdb-speed-map) t)))
   (font-lock-update))
 
 
@@ -188,8 +194,9 @@ Note that this includes renaming made in `org-imdb-title-query'.")
      nil
      `((,pat 1 'org-date t)
        ("^:.*?:" 0 'org-special-keyword t)
-       ("^:\\(?:PROPERTIES\\|END\\):" 0 'org-drawer t)))
-    (font-lock-update)))
+       ("^:\\(?:PROPERTIES\\|END\\):" 0 'org-drawer t)
+       ("^\\*+ " 0 `(face nil keymap ,org-imdb-speed-map) t))))
+  (font-lock-update))
 
 
 ;;;###autoload
