@@ -157,10 +157,40 @@ Note that this includes renaming made in `org-imdb-title-query'.")
 (defvar org-imdb-minor-mode-map
   (make-sparse-keymap))
 
+
 ;;;###autoload
 (define-minor-mode org-imdb-minor-mode
   "Minor mode for org-imdb."
-  :keymap org-imdb-minor-mode-map)
+  :keymap org-imdb-minor-mode-map
+  (if org-imdb-minor-mode
+      (org-imdb-setup)
+    (org-imdb-teardown)))
+
+
+(defun org-imdb-setup ()
+  "Setup `org-imdb-minor-mode'."
+  (let ((pat (format "^:\\(?:%s\\): *\\(.*\\)"
+                     (mapconcat 'identity org-imdb-user-properties "\\|"))))
+    (font-lock-add-keywords
+     nil
+     `((,pat 1 'org-date t)
+       ("^:.*?:" 0 'org-special-keyword t)
+       ("^:\\(?:PROPERTIES\\|END\\):" 0 'org-drawer t))
+     t))
+  (font-lock-update))
+
+
+(defun org-imdb-teardown ()
+  "Teardown `org-imdb-minor-mode'."
+  (let ((pat (format "^:\\(?:%s\\): *\\(.*\\)"
+                     (mapconcat 'identity org-imdb-user-properties "\\|"))))
+    (font-lock-remove-keywords
+     nil
+     `((,pat 1 'org-date t)
+       ("^:.*?:" 0 'org-special-keyword t)
+       ("^:\\(?:PROPERTIES\\|END\\):" 0 'org-drawer t)))
+    (font-lock-update)))
+
 
 ;;;###autoload
 (defun org-imdb-update-entry (&optional do-not-show-entry)
@@ -475,15 +505,14 @@ When ARG is any other non-nil value, hide it.
 When called interactively one `\\[universal-argument]' prefix
 sets ARG to `t', while two set it to `off'."
   (interactive "P")
-  (when (called-interactively-p)
+  (when (called-interactively-p 'any)
     (cond
      ((equal arg '(4)) (setq arg t))
      ((equal arg '(16)) (setq arg 'off))))
   (save-excursion
     (org-back-to-heading)
     (let ((h-folded-p (org-fold-folded-p (line-end-position)))
-          (d-pos (car (org-get-property-block)))
-          d-folded-p)
+          (d-pos (car (org-get-property-block))))
       (when h-folded-p
         (org-fold-heading nil t))
       (when d-pos
